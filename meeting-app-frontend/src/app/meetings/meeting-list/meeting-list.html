@@ -1,0 +1,268 @@
+<div class="container mt-5">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3">
+      <h2 class="mb-3 mb-sm-4">Toplantılar</h2>
+      <button class="btn btn-primary w-10 w-sm-auto" (click)="openCreate()">+ Yeni Toplantı</button>
+    </div>
+  
+    <div *ngIf="loading" class="alert alert-info">Yükleniyor...</div>
+  
+    <!-- Büyük ekranlar için tablo görünümü -->
+    <div class="table-responsive d-none d-md-block" *ngIf="!loading && meetings.length > 0">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Başlık</th>
+            <th>Açıklama</th>
+            <th>Başlangıç</th>
+            <th>Bitiş</th>
+            <th>Katılımcılar</th>
+            <th>Durum</th>
+            <th style="width:160px">İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of paginatedMeetings">
+            <td>{{ m.title }}</td>
+            <td class="text-truncate" style="max-width:300px">{{ m.description }}</td>
+            <td>{{ m.startDate || m.startAt | date:'short' }}</td>
+            <td>{{ m.endDate || m.endAt | date:'short' }}</td>
+            <td>{{ mapParticipantsToLabels(m.participants) }}</td>
+            <td>{{ m.status || 'active' }}</td>
+            <td>
+              <button class="btn btn-sm btn-warning me-2" (click)="openEdit(m)">Düzenle</button>
+              <button class="btn btn-sm btn-danger" (click)="deleteMeeting(m.id)">Sil</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Mobil ve tablet ekranlar için kart görünümü -->
+    <div class="d-md-none" *ngIf="!loading && meetings.length > 0">
+      <div class="card mb-3" *ngFor="let m of paginatedMeetings">
+        <div class="card-body">
+          <h5 class="card-title">{{ m.title }}</h5>
+          <p class="card-text">{{ m.description }}</p>
+          <div class="d-flex flex-column mb-2">
+            <div class="mb-1"><strong>Başlangıç:</strong> {{ m.startDate | date:'short' }}</div>
+            <div class="mb-1"><strong>Bitiş:</strong> {{ m.endDate | date:'short' }}</div>
+            <div class="mb-1"><strong>Katılımcılar:</strong> {{ mapParticipantsToLabels(m.participants) }}</div>
+            <div class="mb-1"><strong>Durum:</strong> {{ m.status || 'active' }}</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-warning" (click)="openEdit(m)">Düzenle</button>
+            <button class="btn btn-sm btn-danger" (click)="deleteMeeting(m.id)">Sil</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <div *ngIf="!loading && meetings.length === 0" class="alert alert-warning">
+      Henüz toplantı yok.
+    </div>
+    
+    <!-- Pagination -->
+    <div *ngIf="!loading && totalItems > 0" class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+      <div class="text-muted small text-center text-md-start w-100">
+        Toplam {{ totalItems }} toplantı, 
+        {{ (currentPage - 1) * pageSize + 1 }}-{{ currentPage * pageSize > totalItems ? totalItems : currentPage * pageSize }} arası gösteriliyor
+      </div>
+      
+      <nav aria-label="Page navigation" class="d-flex justify-content-center w-100 w-md-auto">
+        <ul class="pagination pagination-sm mb-0">
+          <!-- Önceki sayfa -->
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="prevPage()" aria-label="Previous">
+              <span aria-hidden="true">&laquo;</span>
+            </button>
+          </li>
+          
+          <ng-container *ngIf="totalPages <= 5">
+            <li *ngFor="let page of [].constructor(totalPages); let i = index" 
+                class="page-item" [class.active]="currentPage === i + 1">
+              <button class="page-link" (click)="changePage(i + 1)">{{ i + 1 }}</button>
+            </li>
+          </ng-container>
+          
+          <ng-container *ngIf="totalPages > 5">
+            <!-- İlk sayfa -->
+            <li class="page-item" [class.active]="currentPage === 1">
+              <button class="page-link" (click)="changePage(1)">1</button>
+            </li>
+            
+            <li *ngIf="currentPage > 3" class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+            
+            <ng-container *ngFor="let page of [].constructor(totalPages); let i = index">
+              <li *ngIf="i + 1 !== 1 && i + 1 !== totalPages && 
+                        (i + 1 === currentPage || 
+                         i + 1 === currentPage - 1 || 
+                         i + 1 === currentPage + 1)" 
+                  class="page-item" [class.active]="currentPage === i + 1">
+                <button class="page-link" (click)="changePage(i + 1)">{{ i + 1 }}</button>
+              </li>
+            </ng-container>
+            
+            <li *ngIf="currentPage < totalPages - 2" class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+            
+            <li *ngIf="totalPages > 1" class="page-item" [class.active]="currentPage === totalPages">
+              <button class="page-link" (click)="changePage(totalPages)">{{ totalPages }}</button>
+            </li>
+          </ng-container>
+          
+          <!-- Sonraki sayfa -->
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="nextPage()" aria-label="Next">
+              <span aria-hidden="true">&raquo;</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+  
+  <!-- Modal -->
+  <div
+    class="modal fade show"
+    *ngIf="showModal"
+    tabindex="-1"
+    aria-modal="true"
+    role="dialog"
+    style="display:block; background:rgba(0,0,0,.5)"
+  >
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form #meetingForm="ngForm" (ngSubmit)="save(meetingForm)" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title">Toplantı {{ editingId ? 'Düzenle' : 'Ekle' }}</h5>
+            <button type="button" class="btn-close" aria-label="Kapat" (click)="closeModal()"></button>
+          </div>
+  
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Başlık</label>
+              <input [(ngModel)]="form.title" name="title" required class="form-control" />
+            </div>
+  
+            <div class="mb-3">
+              <label class="form-label">Açıklama</label>
+              <textarea [(ngModel)]="form.description" name="description" class="form-control" rows="3"></textarea>
+            </div>
+  
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Başlangıç</label>
+                <input
+                  [(ngModel)]="form.startDate"
+                  name="startDate"
+                  type="datetime-local"
+                  required
+                  class="form-control"
+                />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Bitiş</label>
+                <input
+                  [(ngModel)]="form.endDate"
+                  name="endDate"
+                  type="datetime-local"
+                  required
+                  class="form-control"
+                />
+              </div>
+            </div>
+  
+            <!-- Katılımcılar (Bootstrap dropdown + checkbox'lı çoklu seçim) -->
+            <div class="mb-3">
+              <label class="form-label">Katılımcılar</label>
+              <div class="dropdown w-100 position-relative">
+                <button
+                  class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center"
+                  type="button"
+                  (click)="toggleParticipants()"
+                >
+                  <span class="text-truncate">
+                    <ng-container *ngIf="form.participants?.length; else secilmedi">
+                      {{ form.participants.length }} kişi seçildi
+                    </ng-container>
+                    <ng-template #secilmedi> Katılımcı seçin </ng-template>
+                  </span>
+                  <i class="bi bi-chevron-down ms-2"></i>
+                </button>
+                
+                <div
+                  class="dropdown-menu p-2 w-100 shadow participants-dropdown show"
+                  *ngIf="isParticipantsOpen"
+                  (click)="$event.stopPropagation()"
+                >
+                  <!-- Arama inputu -->
+                  <div class="mb-2">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Ara..."
+                      [(ngModel)]="userFilter"
+                      name="userFilter"
+                    />
+                  </div>
+                  
+                  <!-- Kullanıcı listesi -->
+                  <div class="list-group" style="max-height: 200px; overflow-y: auto;">
+                    <div *ngIf="usersLoading" class="text-center p-2">
+                      <span class="spinner-border spinner-border-sm me-2"></span> Yükleniyor...
+                    </div>
+                    
+                    <div *ngFor="let user of filteredUsers" class="list-group-item list-group-item-action p-2">
+                      <div class="form-check">
+                        <input 
+                          type="checkbox" 
+                          class="form-check-input" 
+                          id="user-{{user.id}}"
+                          [checked]="isSelected(user.email)"
+                          (change)="toggleParticipant(user.email, $event.target.checked)"
+                        />
+                        <label class="form-check-label" for="user-{{user.id}}">
+                          {{user.firstName}} {{user.lastName}} ({{user.email}})
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div *ngIf="!usersLoading && filteredUsers.length === 0" class="text-center p-2">
+                      Kullanıcı bulunamadı
+                    </div>
+                  </div>
+                  
+                  <!-- Butonlar -->
+                  <div class="d-flex justify-content-end gap-2 mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="form.participants = []">Temizle</button>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="closeParticipants()">Tamam</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+              
+  
+            <div class="mb-3">
+              <label class="form-label">Durum</label>
+              <select [(ngModel)]="form.status" name="status" class="form-select">
+                <option value="">Seçiniz</option>
+                <option value="active">Aktif</option>
+                <option value="cancelled">İptal</option>
+              </select>
+            </div>
+          </div>
+  
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="closeModal()">İptal</button>
+            <button class="btn btn-primary" [disabled]="meetingForm.invalid">
+              {{ editingId ? 'Güncelle' : 'Kaydet' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
